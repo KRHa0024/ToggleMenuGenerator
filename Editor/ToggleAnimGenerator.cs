@@ -59,6 +59,20 @@ public class ToggleAnimGenerator : EditorWindow
         setupMA = EditorGUILayout.Toggle("ModularAvatarでセットアップ", setupMA);
         if (setupMA)
         {
+            // 最上位の親オブジェクトが複数あるかチェック
+            var rootObjects = selectedObjects
+                .Where(obj => obj != null)
+                .Select(obj => obj.transform.root.gameObject)
+                .Distinct()
+                .ToList();
+
+            if (rootObjects.Count > 1) {
+                // 複数の最上位の親オブジェクトがある場合は警告を表示
+                EditorUtility.DisplayDialog("エラー", "複数のアバターは同時にセットアップできません", "OK");
+                setupMA = false;
+                return;
+            }
+
             DisplayInitialStatesUI();
         }
             
