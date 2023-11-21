@@ -13,7 +13,7 @@ public class ToggleMenuGenerator : EditorWindow
     
     string animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
     int numberOfObjects = 0;
-    bool setupMA = false;
+    bool setupMA = true;
 
     AnimatorController animatorController;
 
@@ -22,6 +22,7 @@ public class ToggleMenuGenerator : EditorWindow
     List<bool> initialActiveState = new List<bool>();
 
     Dictionary<string, bool> initialStates = new Dictionary<string, bool>();
+    Dictionary<string, bool> savedStates = new Dictionary<string, bool>();
 
     [MenuItem("くろ～は/ToggleMenuGenerator")]
     public static void ShowWindow()
@@ -39,9 +40,7 @@ public class ToggleMenuGenerator : EditorWindow
         for (int i = 0; i < numberOfObjects; i++)
         {
             selectedObjects[i] = EditorGUILayout.ObjectField($"GameObject {i + 1}", selectedObjects[i], typeof(GameObject), true) as GameObject;
-            EditorGUILayout.BeginHorizontal();
-            includeInCombinedAnimation[i] = EditorGUILayout.Toggle("アニメーションをまとめる", includeInCombinedAnimation[i]);
-            EditorGUILayout.EndHorizontal();
+            includeInCombinedAnimation[i] = EditorGUILayout.ToggleLeft("アニメーションをまとめる", includeInCombinedAnimation[i]);
             GUILayout.Space(10);
         }
 
@@ -55,8 +54,8 @@ public class ToggleMenuGenerator : EditorWindow
             animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
         }
 
-        GUILayout.Space(5);
-        setupMA = EditorGUILayout.Toggle("ModularAvatarでセットアップ", setupMA);
+        GUILayout.Space(10);
+        setupMA = EditorGUILayout.ToggleLeft("ModularAvatarでセットアップ", setupMA);
         if (setupMA)
         {
             // 最上位の親オブジェクトが複数あるかチェック
@@ -73,12 +72,20 @@ public class ToggleMenuGenerator : EditorWindow
                 return;
             }
 
+            GUILayout.Space(10);
+
+            GUILayout.Label("初期状態の設定\n(チェックを入れるとアクティブ、チェックを外すと非アクティブ)", EditorStyles.boldLabel);
             DisplayInitialStatesUI();
+
+            GUILayout.Space(10);
+
+            GUILayout.Label("Parametersの値を保存するか否かの設定\n(VRCExpressionParametersの'Saved'の部分)", EditorStyles.boldLabel);
+            DisplaySavedStatesUI();
         }
             
         GUILayout.Space(5);
 
-        if (GUILayout.Button("アニメーションを生成"))
+        if (GUILayout.Button("セットアップ！"))
         {
             // 保存先のチェック
             if (!Directory.Exists(animationSavePath))
@@ -124,7 +131,7 @@ public class ToggleMenuGenerator : EditorWindow
         {
             string combinedName = string.Join("_", combinedNames);
             EnsureStateExistence(combinedName);
-            initialStates[combinedName] = EditorGUILayout.Toggle($"{combinedName}の初期状態:", initialStates[combinedName]);
+            initialStates[combinedName] = EditorGUILayout.ToggleLeft($"{combinedName}の初期状態", initialStates[combinedName]);
         }
 
         // 個別のオブジェクトの初期状態チェックボックス
@@ -134,7 +141,7 @@ public class ToggleMenuGenerator : EditorWindow
             {
                 string objName = selectedObjects[i].name;
                 EnsureStateExistence(objName);
-                initialStates[objName] = EditorGUILayout.Toggle($"{objName}の初期状態:", initialStates[objName]);
+                initialStates[objName] = EditorGUILayout.ToggleLeft($"{objName}の初期状態", initialStates[objName]);
             }
         }
     }
@@ -144,7 +151,42 @@ public class ToggleMenuGenerator : EditorWindow
     {
         if (!initialStates.ContainsKey(name))
         {
-            initialStates.Add(name, false);
+            initialStates.Add(name, true);// デフォルトは true
+        }
+    }
+
+    void DisplaySavedStatesUI()
+    {
+        // 結合されるオブジェクトの Saved チェックボックス
+        var combinedNames = selectedObjects
+            .Where((obj, index) => obj != null && includeInCombinedAnimation[index])
+            .Select(obj => obj.name).ToList();
+
+        if (combinedNames.Any())
+        {
+            string combinedName = string.Join("_", combinedNames);
+            EnsureSavedStateExistence(combinedName);
+            savedStates[combinedName] = EditorGUILayout.ToggleLeft($"{combinedName}のSaved", savedStates[combinedName]);
+        }
+
+        // 個別のオブジェクトの Saved チェックボックス
+        for (int i = 0; i < selectedObjects.Count; i++)
+        {
+            if (selectedObjects[i] != null && !includeInCombinedAnimation[i])
+            {
+                string objName = selectedObjects[i].name;
+                EnsureSavedStateExistence(objName);
+                savedStates[objName] = EditorGUILayout.ToggleLeft($"{objName}のSaved", savedStates[objName]);
+            }
+        }
+    }
+
+    // Saved 状態が存在しない場合はディクショナリに追加
+    void EnsureSavedStateExistence(string name)
+    {
+        if (!savedStates.ContainsKey(name))
+        {
+            savedStates.Add(name, true); // デフォルトは true
         }
     }
 
@@ -340,12 +382,15 @@ public class ToggleMenuGenerator : EditorWindow
         List<VRCExpressionParameters.Parameter> parametersList = tagParam.parameters.ToList();
         foreach (var param in animatorController.parameters)
         {
+            // saved の状態を適切に取得
+            bool isSaved = savedStates.ContainsKey(param.name) && savedStates[param.name];
+
             VRCExpressionParameters.Parameter expressionParam = new VRCExpressionParameters.Parameter
             {
                 name = param.name,
                 valueType = VRCExpressionParameters.ValueType.Bool,
                 defaultValue = param.defaultBool ? 1f : 0f,
-                saved = true
+                saved = isSaved
             };
             parametersList.Add(expressionParam);
         }
