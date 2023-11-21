@@ -8,10 +8,10 @@ using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
 using nadena.dev.modular_avatar.core;
 
-public class ToggleAnimGenerator : EditorWindow
+public class ToggleMenuGenerator : EditorWindow
 {
     
-    string animationSavePath = "Assets/KRHa's Assets/ToggleAnimGenerator/Animations";
+    string animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
     int numberOfObjects = 0;
     bool setupMA = false;
 
@@ -23,15 +23,15 @@ public class ToggleAnimGenerator : EditorWindow
 
     Dictionary<string, bool> initialStates = new Dictionary<string, bool>();
 
-    [MenuItem("くろ～は/ToggleAnimGenerator")]
+    [MenuItem("くろ～は/ToggleMenuGenerator")]
     public static void ShowWindow()
     {
-        GetWindow<ToggleAnimGenerator>("ToggleAnimGenerator");
+        GetWindow<ToggleMenuGenerator>("ToggleMenuGenerator");
     }
 
     void OnGUI()
     {
-        GUILayout.Label("アニメーションを生成するGameObjectを選択してください", EditorStyles.boldLabel);
+        GUILayout.Label("GameObjectを選択してください", EditorStyles.boldLabel);
         numberOfObjects = EditorGUILayout.IntField("GameObjectの数", numberOfObjects);
 
         AdjustLists(numberOfObjects);
@@ -47,12 +47,12 @@ public class ToggleAnimGenerator : EditorWindow
 
         GUILayout.Space(5);
 
-        GUILayout.Label("保存先を変更(Assets/以下のフォルダにのみ保存できます)\n例: Assets/KRHa's Assets/ToggleAnimGenerator/Animations", EditorStyles.boldLabel);
+        GUILayout.Label("保存先を変更(Assets/以下のフォルダにのみ保存できます)\n例: Assets/KRHa's Assets/ToggleMenuGenerator/Animations", EditorStyles.boldLabel);
         animationSavePath = EditorGUILayout.TextField(animationSavePath);
 
         if (GUILayout.Button("保存先のリセット"))
         {
-            animationSavePath = "Assets/KRHa's Assets/ToggleAnimGenerator/Animations";
+            animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
         }
 
         GUILayout.Space(5);
@@ -297,7 +297,7 @@ public class ToggleAnimGenerator : EditorWindow
     // Baseフォルダを複製
     void DuplicateTAGBaseFolder(string combinedObjectName)
     {
-        string baseFolderPath = "Assets/KRHa's Assets/ToggleAnimGenerator/TAG_Base";
+        string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TAG_Base";
         string newFolderPath = $"{animationSavePath}/TAG_Base_{combinedObjectName}";
         AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
     }
@@ -317,7 +317,7 @@ public class ToggleAnimGenerator : EditorWindow
         // TAG_MenuのサブメニューにTAG_Menu_Mainをセット
         VRCExpressionsMenu.Control mainControl = new VRCExpressionsMenu.Control
         {
-            name = "ToggleAnimGenerator",
+            name = "ToggleMenuGenerator",
             type = VRCExpressionsMenu.Control.ControlType.SubMenu,
             subMenu = tagMenuMain
         };
