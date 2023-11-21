@@ -102,9 +102,9 @@ public class ToggleMenuGenerator : EditorWindow
                 CreateAnimatorController();
 
                 string combinedObjectName = string.Join("_", selectedObjects.Where(obj => obj != null).Select(obj => obj.name));
-                DuplicateTAGBaseFolder(combinedObjectName);
+                DuplicateTMGBaseFolder(combinedObjectName);
                 
-                string newFolderPath = $"{animationSavePath}/TAG_Base_{combinedObjectName}";
+                string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
                 UpdateExpressionParametersAndMenu(newFolderPath, animatorController);
 
                 CreateMAComponents(combinedObjectName, newFolderPath);
@@ -295,10 +295,10 @@ public class ToggleMenuGenerator : EditorWindow
     }
 
     // Baseフォルダを複製
-    void DuplicateTAGBaseFolder(string combinedObjectName)
+    void DuplicateTMGBaseFolder(string combinedObjectName)
     {
-        string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TAG_Base";
-        string newFolderPath = $"{animationSavePath}/TAG_Base_{combinedObjectName}";
+        string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
+        string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
         AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
     }
 
@@ -306,15 +306,15 @@ public class ToggleMenuGenerator : EditorWindow
     void UpdateExpressionParametersAndMenu(string folderPath, AnimatorController animatorController)
     {
         // VRCExpressionsMenuとVRCExpressionParametersのアセットをロード
-        string tagMenuPath = $"{folderPath}/TAG_Menu.asset";
-        string tagMenuMainPath = $"{folderPath}/TAG_Menu_Main.asset";
-        string tagParamPath = $"{folderPath}/TAG_Param.asset";
+        string tagMenuPath = $"{folderPath}/TMG_Menu.asset";
+        string tagMenuMainPath = $"{folderPath}/TMG_Menu_Main.asset";
+        string tagParamPath = $"{folderPath}/TMG_Param.asset";
 
         VRCExpressionsMenu tagMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuPath);
         VRCExpressionsMenu tagMenuMain = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuMainPath);
         VRCExpressionParameters tagParam = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(tagParamPath);
 
-        // TAG_MenuのサブメニューにTAG_Menu_Mainをセット
+        // TMG_MenuのサブメニューにTMG_Menu_Mainをセット
         VRCExpressionsMenu.Control mainControl = new VRCExpressionsMenu.Control
         {
             name = "ToggleMenuGenerator",
@@ -375,7 +375,7 @@ public class ToggleMenuGenerator : EditorWindow
         var maMenu = maToggleAnim.AddComponent<ModularAvatarMenuInstaller>();
 
         // ModularAvatarParametersにパラメータを追加
-        string tagParamPath = $"{folderPath}/TAG_Param.asset";
+        string tagParamPath = $"{folderPath}/TMG_Param.asset";
         VRCExpressionParameters tagParam = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(tagParamPath);
         foreach (var param in tagParam.parameters)
         {
@@ -390,7 +390,7 @@ public class ToggleMenuGenerator : EditorWindow
         }
 
         // ModularAvatarMenuInstallerの設定
-        string tagMenuPath = $"{folderPath}/TAG_Menu.asset";
+        string tagMenuPath = $"{folderPath}/TMG_Menu.asset";
         VRCExpressionsMenu tagMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuPath);
         maMenu.menuToAppend = tagMenu;
 
