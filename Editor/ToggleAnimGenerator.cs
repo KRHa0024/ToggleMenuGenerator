@@ -13,7 +13,7 @@ public class ToggleAnimGenerator : EditorWindow
     
     string animationSavePath = "Assets/KRHa's Assets/ToggleAnimGenerator/Animations";
     int numberOfObjects = 0;
-    bool createAnimatorController = false;
+    bool setupMA = false;
 
     AnimatorController animatorController;
 
@@ -40,10 +40,9 @@ public class ToggleAnimGenerator : EditorWindow
         {
             selectedObjects[i] = EditorGUILayout.ObjectField($"GameObject {i + 1}", selectedObjects[i], typeof(GameObject), true) as GameObject;
             EditorGUILayout.BeginHorizontal();
-            includeInCombinedAnimation[i] = EditorGUILayout.Toggle(includeInCombinedAnimation[i], GUILayout.Width(15));
-            EditorGUILayout.LabelField("アニメーションをまとめる", GUILayout.Width(180));
+            includeInCombinedAnimation[i] = EditorGUILayout.Toggle("アニメーションをまとめる", includeInCombinedAnimation[i]);
             EditorGUILayout.EndHorizontal();
-            GUILayout.Space(5);
+            GUILayout.Space(10);
         }
 
         GUILayout.Space(5);
@@ -57,8 +56,8 @@ public class ToggleAnimGenerator : EditorWindow
         }
 
         GUILayout.Space(5);
-        createAnimatorController = EditorGUILayout.Toggle("MenuとParamも作る", createAnimatorController);
-        if (createAnimatorController)
+        setupMA = EditorGUILayout.Toggle("ModularAvatarでセットアップ", setupMA);
+        if (setupMA)
         {
             DisplayInitialStatesUI();
         }
@@ -84,7 +83,7 @@ public class ToggleAnimGenerator : EditorWindow
                     CreateAnimation(new GameObject[] { obj }, false, obj.name);
                 }
             }
-            if (createAnimatorController)
+            if (setupMA)
             {
                 CreateAnimatorController();
 
@@ -93,6 +92,8 @@ public class ToggleAnimGenerator : EditorWindow
                 
                 string newFolderPath = $"{animationSavePath}/TAG_Base_{combinedObjectName}";
                 UpdateExpressionParametersAndMenu(newFolderPath, animatorController);
+
+                CreateMAComponents(combinedObjectName, newFolderPath);
             }
         }
     }
@@ -295,8 +296,18 @@ public class ToggleAnimGenerator : EditorWindow
         string tagMenuMainPath = $"{folderPath}/TAG_Menu_Main.asset";
         string tagParamPath = $"{folderPath}/TAG_Param.asset";
 
+        VRCExpressionsMenu tagMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuPath);
         VRCExpressionsMenu tagMenuMain = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuMainPath);
         VRCExpressionParameters tagParam = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(tagParamPath);
+
+        // TAG_MenuのサブメニューにTAG_Menu_Mainをセット
+        VRCExpressionsMenu.Control mainControl = new VRCExpressionsMenu.Control
+        {
+            name = "ToggleAnimGenerator",
+            type = VRCExpressionsMenu.Control.ControlType.SubMenu,
+            subMenu = tagMenuMain
+        };
+        tagMenu.controls.Add(mainControl);
 
         // VRCExpressionsMenuへのコントロール追加
         foreach (var param in animatorController.parameters)
@@ -327,9 +338,52 @@ public class ToggleAnimGenerator : EditorWindow
         tagParam.parameters = parametersList.ToArray();
 
         // 保存
-        EditorUtility.SetDirty(tagParam);
+        EditorUtility.SetDirty(tagMenu);
         EditorUtility.SetDirty(tagMenuMain);
+        EditorUtility.SetDirty(tagParam);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
+    }
+
+    // MA関連のコンポーネントを実装
+    void CreateMAComponents(string combinedObjectName, string folderPath)
+    {
+        // 最上位の親オブジェクトを特定
+        Transform topParent = selectedObjects[0].transform.root;
+
+        // MA_ToggleAnim GameObjectの作成
+        GameObject maToggleAnim = new GameObject("MA_ToggleAnim");
+        maToggleAnim.transform.SetParent(topParent, false);
+
+        // コンポーネントの追加
+        var maAnimator = maToggleAnim.AddComponent<ModularAvatarMergeAnimator>();
+        var maParams = maToggleAnim.AddComponent<ModularAvatarParameters>();
+        var maMenu = maToggleAnim.AddComponent<ModularAvatarMenuInstaller>();
+
+        // ModularAvatarParametersにパラメータを追加
+        string tagParamPath = $"{folderPath}/TAG_Param.asset";
+        VRCExpressionParameters tagParam = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(tagParamPath);
+        foreach (var param in tagParam.parameters)
+        {
+            maParams.parameters.Add(new ParameterConfig()
+            {
+                nameOrPrefix = param.name,
+                syncType = ParameterSyncType.Bool,
+                defaultValue = param.defaultValue,
+                saved = param.saved,
+                remapTo = ""
+            });
+        }
+
+        // ModularAvatarMenuInstallerの設定
+        string tagMenuPath = $"{folderPath}/TAG_Menu.asset";
+        VRCExpressionsMenu tagMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuPath);
+        maMenu.menuToAppend = tagMenu;
+
+        // ModularAvatarMergeAnimatorの設定
+        maAnimator.animator = animatorController;
+        maAnimator.deleteAttachedAnimator = false;
+        maAnimator.matchAvatarWriteDefaults = true;
+        maAnimator.pathMode = MergeAnimatorPathMode.Absolute;
     }
 }
