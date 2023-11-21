@@ -102,10 +102,10 @@ public class ToggleMenuGenerator : EditorWindow
                 CreateAnimatorController();
 
                 string combinedObjectName = string.Join("_", selectedObjects.Where(obj => obj != null).Select(obj => obj.name));
-                DuplicateTMGBaseFolder(combinedObjectName);
+                DuplicateBaseFolder(combinedObjectName);
                 
                 string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
-                UpdateExpressionParametersAndMenu(newFolderPath, animatorController);
+                UpdateParamAndMenu(newFolderPath, animatorController);
 
                 CreateMAComponents(combinedObjectName, newFolderPath);
             }
@@ -234,7 +234,7 @@ public class ToggleMenuGenerator : EditorWindow
         if (combinedNames.Any())
         {
             string combinedName = string.Join("_", combinedNames);
-            AddLayerAndParameter(combinedName, initialStates[combinedName]);
+            AddLayerAndParam(combinedName, initialStates[combinedName]);
         }
 
         for (int i = 0; i < selectedObjects.Count; i++)
@@ -242,7 +242,7 @@ public class ToggleMenuGenerator : EditorWindow
             if (selectedObjects[i] != null && !includeInCombinedAnimation[i])
             {
                 string objName = selectedObjects[i].name;
-                AddLayerAndParameter(objName, initialStates[objName]);
+                AddLayerAndParam(objName, initialStates[objName]);
             }
         }
 
@@ -251,7 +251,7 @@ public class ToggleMenuGenerator : EditorWindow
     }
 
     // AnimatorControllerにLayerとParamaterを追加
-    void AddLayerAndParameter(string name, bool isActiveInitially)
+    void AddLayerAndParam(string name, bool isActiveInitially)
     {
         // レイヤーの作成
         string layerName = $"{name}_Toggle";
@@ -295,7 +295,7 @@ public class ToggleMenuGenerator : EditorWindow
     }
 
     // Baseフォルダを複製
-    void DuplicateTMGBaseFolder(string combinedObjectName)
+    void DuplicateBaseFolder(string combinedObjectName)
     {
         string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
         string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
@@ -303,7 +303,7 @@ public class ToggleMenuGenerator : EditorWindow
     }
 
     // VRCExpressionsMenuとVRCExpressionParametersに書き込み
-    void UpdateExpressionParametersAndMenu(string folderPath, AnimatorController animatorController)
+    void UpdateParamAndMenu(string folderPath, AnimatorController animatorController)
     {
         // VRCExpressionsMenuとVRCExpressionParametersのアセットをロード
         string tagMenuPath = $"{folderPath}/TMG_Menu.asset";
