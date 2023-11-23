@@ -10,19 +10,20 @@ using nadena.dev.modular_avatar.core;
 
 public class ToggleMenuGenerator : EditorWindow
 {
-    
     string animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
-    int numberOfObjects = 0;
     bool setupMA = true;
-
     AnimatorController animatorController;
 
-    List<GameObject> selectedObjects = new List<GameObject>();
-    List<bool> includeInCombinedAnimation = new List<bool>();
-    List<bool> initialActiveState = new List<bool>();
+    // オブジェクトリストの管理に使用されるクラス
+    class ObjectData
+    {
+        public GameObject gameObject;
+        public bool initialState;
+        public bool isSaved;
+        public List<GameObject> combinedObjects = new List<GameObject>();
+    }
 
-    Dictionary<string, bool> initialStates = new Dictionary<string, bool>();
-    Dictionary<string, bool> savedStates = new Dictionary<string, bool>();
+    List<ObjectData> objectDatas = new List<ObjectData>();
 
     [MenuItem("くろ～は/ToggleMenuGenerator")]
     public static void ShowWindow()
@@ -33,14 +34,46 @@ public class ToggleMenuGenerator : EditorWindow
     void OnGUI()
     {
         GUILayout.Label("GameObjectを選択してください", EditorStyles.boldLabel);
-        numberOfObjects = EditorGUILayout.IntField("GameObjectの数", numberOfObjects);
 
-        AdjustLists(numberOfObjects);
-
-        for (int i = 0; i < numberOfObjects; i++)
+        // "オブジェクトを追加"ボタン
+        if (GUILayout.Button("オブジェクトを追加"))
         {
-            selectedObjects[i] = EditorGUILayout.ObjectField($"GameObject {i + 1}", selectedObjects[i], typeof(GameObject), true) as GameObject;
-            includeInCombinedAnimation[i] = EditorGUILayout.ToggleLeft("アニメーションをまとめる", includeInCombinedAnimation[i]);
+            objectDatas.Add(new ObjectData());
+        }
+
+        // "オブジェクトを削除"ボタン（一番最後のオブジェクトフィールドから削除）
+        if (GUILayout.Button("オブジェクトを削除") && objectDatas.Count > 0)
+        {
+            objectDatas.RemoveAt(objectDatas.Count - 1);
+        }
+
+
+        for (int i = 0; i < objectDatas.Count; i++)
+        {
+            var data = objectDatas[i];
+
+            EditorGUILayout.BeginHorizontal();
+            data.gameObject = EditorGUILayout.ObjectField($"GameObject {i + 1}", data.gameObject, typeof(GameObject), true) as GameObject;
+            if (GUILayout.Button("+"))
+            {
+                data.combinedObjects.Add(null);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            for (int j = 0; j < data.combinedObjects.Count; j++)
+            {
+                EditorGUILayout.BeginHorizontal();
+                data.combinedObjects[j] = EditorGUILayout.ObjectField($"Combined Object {j + 1}", data.combinedObjects[j], typeof(GameObject), true) as GameObject;
+                if (GUILayout.Button("-") && data.combinedObjects.Count > 0)
+                {
+                    data.combinedObjects.RemoveAt(j);
+                    j--;
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            data.initialState = EditorGUILayout.ToggleLeft("初期状態", data.initialState);
+            data.isSaved = EditorGUILayout.ToggleLeft("Saved", data.isSaved);
             GUILayout.Space(10);
         }
 
@@ -55,37 +88,11 @@ public class ToggleMenuGenerator : EditorWindow
         }
 
         GUILayout.Space(10);
-        setupMA = EditorGUILayout.ToggleLeft("ModularAvatarでセットアップ", setupMA);
-        if (setupMA)
-        {
-            // 最上位の親オブジェクトが複数あるかチェック
-            var rootObjects = selectedObjects
-                .Where(obj => obj != null)
-                .Select(obj => obj.transform.root.gameObject)
-                .Distinct()
-                .ToList();
-
-            if (rootObjects.Count > 1) {
-                // 複数の最上位の親オブジェクトがある場合は警告を表示
-                EditorUtility.DisplayDialog("エラー", "複数のアバターは同時にセットアップできません", "OK");
-                setupMA = false;
-                return;
-            }
-
-            GUILayout.Space(10);
-
-            GUILayout.Label("初期状態の設定\n(チェックを入れるとアクティブ、チェックを外すと非アクティブ)", EditorStyles.boldLabel);
-            DisplayInitialStatesUI();
-
-            GUILayout.Space(10);
-
-            GUILayout.Label("Parametersの値を保存するか否かの設定\n(VRCExpressionParametersの'Saved'の部分)", EditorStyles.boldLabel);
-            DisplaySavedStatesUI();
-        }
+        setupMA = EditorGUILayout.Toggle("ModularAvatarでセットアップ", setupMA);
             
         GUILayout.Space(5);
 
-        if (GUILayout.Button("セットアップ！"))
+        if (GUILayout.Button("アニメーションを生成"))
         {
             // 保存先のチェック
             if (!Directory.Exists(animationSavePath))
@@ -96,129 +103,39 @@ public class ToggleMenuGenerator : EditorWindow
 
             CreateCombinedAnimation();
 
-            foreach (var obj in selectedObjects)
-            {
-                if (obj != null && !includeInCombinedAnimation[selectedObjects.IndexOf(obj)])
-                {
-                    CreateAnimation(new GameObject[] { obj }, true, obj.name);
-                    CreateAnimation(new GameObject[] { obj }, false, obj.name);
-                }
-            }
             if (setupMA)
             {
+                string combinedObjectName = GetCombinedObjectName();
+
                 CreateAnimatorController();
 
-                string combinedObjectName = string.Join("_", selectedObjects.Where(obj => obj != null).Select(obj => obj.name));
                 DuplicateBaseFolder(combinedObjectName);
                 
                 string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
                 UpdateParamAndMenu(newFolderPath, animatorController);
 
-                CreateMAComponents(combinedObjectName, newFolderPath);
+                CreateMAComponents(newFolderPath);
             }
         }
-    }
-
-    // 初期状態チェックボックスの処理
-    void DisplayInitialStatesUI()
-    {
-        // 結合されるオブジェクトの初期状態チェックボックス
-        var combinedNames = selectedObjects
-            .Where((obj, index) => obj != null && includeInCombinedAnimation[index])
-            .Select(obj => obj.name).ToList();
-
-        if (combinedNames.Any())
-        {
-            string combinedName = string.Join("_", combinedNames);
-            EnsureStateExistence(combinedName);
-            initialStates[combinedName] = EditorGUILayout.ToggleLeft($"{combinedName}の初期状態", initialStates[combinedName]);
-        }
-
-        // 個別のオブジェクトの初期状態チェックボックス
-        for (int i = 0; i < selectedObjects.Count; i++)
-        {
-            if (selectedObjects[i] != null && !includeInCombinedAnimation[i])
-            {
-                string objName = selectedObjects[i].name;
-                EnsureStateExistence(objName);
-                initialStates[objName] = EditorGUILayout.ToggleLeft($"{objName}の初期状態", initialStates[objName]);
-            }
-        }
-    }
-
-    // 初期状態が存在しない場合はディクショナリに追加
-    void EnsureStateExistence(string name)
-    {
-        if (!initialStates.ContainsKey(name))
-        {
-            initialStates.Add(name, true);// デフォルトは true
-        }
-    }
-
-    void DisplaySavedStatesUI()
-    {
-        // 結合されるオブジェクトの Saved チェックボックス
-        var combinedNames = selectedObjects
-            .Where((obj, index) => obj != null && includeInCombinedAnimation[index])
-            .Select(obj => obj.name).ToList();
-
-        if (combinedNames.Any())
-        {
-            string combinedName = string.Join("_", combinedNames);
-            EnsureSavedStateExistence(combinedName);
-            savedStates[combinedName] = EditorGUILayout.ToggleLeft($"{combinedName}のSaved", savedStates[combinedName]);
-        }
-
-        // 個別のオブジェクトの Saved チェックボックス
-        for (int i = 0; i < selectedObjects.Count; i++)
-        {
-            if (selectedObjects[i] != null && !includeInCombinedAnimation[i])
-            {
-                string objName = selectedObjects[i].name;
-                EnsureSavedStateExistence(objName);
-                savedStates[objName] = EditorGUILayout.ToggleLeft($"{objName}のSaved", savedStates[objName]);
-            }
-        }
-    }
-
-    // Saved 状態が存在しない場合はディクショナリに追加
-    void EnsureSavedStateExistence(string name)
-    {
-        if (!savedStates.ContainsKey(name))
-        {
-            savedStates.Add(name, true); // デフォルトは true
-        }
-    }
-
-    // リストのサイズ調整
-    void AdjustLists(int size)
-    {
-        while (selectedObjects.Count < size) selectedObjects.Add(null);
-        while (includeInCombinedAnimation.Count < size) includeInCombinedAnimation.Add(false);
-        while (selectedObjects.Count > size) selectedObjects.RemoveAt(selectedObjects.Count - 1);
-        while (includeInCombinedAnimation.Count > size) includeInCombinedAnimation.RemoveAt(includeInCombinedAnimation.Count - 1);
-        while (initialActiveState.Count < size) initialActiveState.Add(false);
-        while (initialActiveState.Count > size) initialActiveState.RemoveAt(initialActiveState.Count - 1);
     }
 
     // 結合アニメーションの生成
     void CreateCombinedAnimation()
     {
-        List<GameObject> combinedObjects = new List<GameObject>();
-        foreach (var obj in selectedObjects)
+        foreach (var data in objectDatas)
         {
-            if (obj != null && includeInCombinedAnimation[selectedObjects.IndexOf(obj)])
+            if (data.gameObject != null)
             {
-                combinedObjects.Add(obj);
-            }
-        }
+                // まとめるオブジェクトのリストを作成
+                List<GameObject> objectsToCombine = new List<GameObject>();
+                objectsToCombine.Add(data.gameObject);
+                objectsToCombine.AddRange(data.combinedObjects);
 
-        // 結合されたオブジェクトがある場合のみアニメーション生成
-        if (combinedObjects.Count > 0)
-        {
-            string combinedName = string.Join("_", combinedObjects.ConvertAll(obj => obj.name));
-            CreateAnimation(combinedObjects.ToArray(), true, combinedName);
-            CreateAnimation(combinedObjects.ToArray(), false, combinedName);
+                // アニメーションを生成
+                string combinedName = GetCombinedName(data);
+                CreateAnimation(objectsToCombine.ToArray(), true, combinedName);
+                CreateAnimation(objectsToCombine.ToArray(), false, combinedName);
+            }
         }
     }
 
@@ -262,29 +179,18 @@ public class ToggleMenuGenerator : EditorWindow
     // Animator Controllerの生成
     void CreateAnimatorController()
     {
-        // Animator Controllerの名前を取得したGameObjectの名前から生成
-        string combinedObjectName = string.Join("_", selectedObjects.Where(obj => obj != null).Select(obj => obj.name));
+        string combinedObjectName = GetCombinedObjectName();
         string controllerName = $"{combinedObjectName}_ToggleLayer";
-
-        string controllerPath = $"{animationSavePath}/{controllerName}_ToggleLayer.controller";
+        string controllerPath = $"{animationSavePath}/{controllerName}.controller";
         animatorController = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
 
-        var combinedNames = selectedObjects
-            .Where((obj, index) => obj != null && includeInCombinedAnimation[index])
-            .Select(obj => obj.name).ToList();
-
-        if (combinedNames.Any())
+        foreach (var data in objectDatas)
         {
-            string combinedName = string.Join("_", combinedNames);
-            AddLayerAndParam(combinedName, initialStates[combinedName]);
-        }
-
-        for (int i = 0; i < selectedObjects.Count; i++)
-        {
-            if (selectedObjects[i] != null && !includeInCombinedAnimation[i])
+            if (data.gameObject != null)
             {
-                string objName = selectedObjects[i].name;
-                AddLayerAndParam(objName, initialStates[objName]);
+                string layerName = GetCombinedName(data);
+                bool initialState = data.initialState;
+                AddLayerAndParam(layerName, initialState);
             }
         }
 
@@ -338,19 +244,19 @@ public class ToggleMenuGenerator : EditorWindow
 
     // Baseフォルダを複製
     void DuplicateBaseFolder(string combinedObjectName)
-    {
-        string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
-        string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
-        AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
-    }
+{
+    string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
+    string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
+    AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
+}
 
     // VRCExpressionsMenuとVRCExpressionParametersに書き込み
-    void UpdateParamAndMenu(string folderPath, AnimatorController animatorController)
+    void UpdateParamAndMenu(string newFolderPath, AnimatorController animatorController)
     {
         // VRCExpressionsMenuとVRCExpressionParametersのアセットをロード
-        string tagMenuPath = $"{folderPath}/TMG_Menu.asset";
-        string tagMenuMainPath = $"{folderPath}/TMG_Menu_Main.asset";
-        string tagParamPath = $"{folderPath}/TMG_Param.asset";
+        string tagMenuPath = $"{newFolderPath}/TMG_Menu.asset";
+        string tagMenuMainPath = $"{newFolderPath}/TMG_Menu_Main.asset";
+        string tagParamPath = $"{newFolderPath}/TMG_Param.asset";
 
         VRCExpressionsMenu tagMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuPath);
         VRCExpressionsMenu tagMenuMain = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(tagMenuMainPath);
@@ -382,15 +288,13 @@ public class ToggleMenuGenerator : EditorWindow
         List<VRCExpressionParameters.Parameter> parametersList = tagParam.parameters.ToList();
         foreach (var param in animatorController.parameters)
         {
-            // saved の状態を適切に取得
-            bool isSaved = savedStates.ContainsKey(param.name) && savedStates[param.name];
 
             VRCExpressionParameters.Parameter expressionParam = new VRCExpressionParameters.Parameter
             {
                 name = param.name,
                 valueType = VRCExpressionParameters.ValueType.Bool,
                 defaultValue = param.defaultBool ? 1f : 0f,
-                saved = isSaved
+                //saved = param.isSaved,
             };
             parametersList.Add(expressionParam);
         }
@@ -405,33 +309,32 @@ public class ToggleMenuGenerator : EditorWindow
     }
 
     // MA関連のコンポーネントを実装
-    void CreateMAComponents(string combinedObjectName, string folderPath)
+    void CreateMAComponents(string folderPath)
     {
-        // 最上位の親オブジェクトを特定
-        Transform topParent = selectedObjects[0].transform.root;
+        Transform topParent = objectDatas.Select(d => d.gameObject).FirstOrDefault(obj => obj != null)?.transform.root;
 
-        // MA_ToggleAnim GameObjectの作成
         GameObject maToggleAnim = new GameObject("MA_ToggleAnim");
         maToggleAnim.transform.SetParent(topParent, false);
 
-        // コンポーネントの追加
         var maAnimator = maToggleAnim.AddComponent<ModularAvatarMergeAnimator>();
         var maParams = maToggleAnim.AddComponent<ModularAvatarParameters>();
         var maMenu = maToggleAnim.AddComponent<ModularAvatarMenuInstaller>();
 
         // ModularAvatarParametersにパラメータを追加
-        string tagParamPath = $"{folderPath}/TMG_Param.asset";
-        VRCExpressionParameters tagParam = AssetDatabase.LoadAssetAtPath<VRCExpressionParameters>(tagParamPath);
-        foreach (var param in tagParam.parameters)
+        foreach (var data in objectDatas)
         {
-            maParams.parameters.Add(new ParameterConfig()
+            if (data.gameObject != null)
             {
-                nameOrPrefix = param.name,
-                syncType = ParameterSyncType.Bool,
-                defaultValue = param.defaultValue,
-                saved = param.saved,
-                remapTo = ""
-            });
+                string paramName = GetCombinedName(data) + "_Toggle";
+                maParams.parameters.Add(new ParameterConfig()
+                {
+                    nameOrPrefix = paramName,
+                    syncType = ParameterSyncType.Bool,
+                    defaultValue = data.initialState ? 1f : 0f,
+                    saved = data.isSaved,
+                    remapTo = ""
+                });
+            }
         }
 
         // ModularAvatarMenuInstallerの設定
@@ -445,4 +348,16 @@ public class ToggleMenuGenerator : EditorWindow
         maAnimator.matchAvatarWriteDefaults = true;
         maAnimator.pathMode = MergeAnimatorPathMode.Absolute;
     }
+    // 各オブジェクトの結合された名前を取得
+    string GetCombinedName(ObjectData data)
+    {
+        return data.gameObject.name + "_" + string.Join("_", data.combinedObjects.Select(obj => obj.name));
+    }
+
+    // 全オブジェクトの結合名を取得
+    string GetCombinedObjectName()
+    {
+        return string.Join("_", objectDatas.Select(data => GetCombinedName(data)));
+    }
+    
 }
