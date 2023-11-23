@@ -92,7 +92,7 @@ public class ToggleMenuGenerator : EditorWindow
             
         GUILayout.Space(5);
 
-        if (GUILayout.Button("アニメーションを生成"))
+        if (GUILayout.Button("セットアップ！"))
         {
             // 保存先のチェック
             if (!Directory.Exists(animationSavePath))
