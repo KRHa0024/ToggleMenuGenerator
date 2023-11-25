@@ -38,13 +38,11 @@ public class ToggleMenuGenerator : EditorWindow
 
         EditorGUILayout.BeginHorizontal();
 
-        // "オブジェクトを追加"ボタン
         if (GUILayout.Button("アイテムを追加"))
         {
             objectDatas.Add(new ObjectData());
         }
 
-        // "オブジェクトを削除"ボタン（一番最後のオブジェクトフィールドから削除）
         if (GUILayout.Button("アイテムを削除") && objectDatas.Count > 0)
         {
             objectDatas.RemoveAt(objectDatas.Count - 1);
