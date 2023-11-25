@@ -28,33 +28,37 @@ public class ToggleMenuGenerator : EditorWindow
     [MenuItem("くろ～は/ToggleMenuGenerator")]
     public static void ShowWindow()
     {
-        GetWindow<ToggleMenuGenerator>("ToggleMenuGenerator");
+        ToggleMenuGenerator window = GetWindow<ToggleMenuGenerator>("ToggleMenuGenerator");
+        window.minSize = new Vector2(500, 400);
     }
 
     void OnGUI()
     {
-        GUILayout.Label("GameObjectを選択してください", EditorStyles.boldLabel);
+        GUILayout.Label("トグルするアイテムを選択してください", EditorStyles.boldLabel);
+
+        EditorGUILayout.BeginHorizontal();
 
         // "オブジェクトを追加"ボタン
-        if (GUILayout.Button("オブジェクトを追加"))
+        if (GUILayout.Button("アイテムを追加"))
         {
             objectDatas.Add(new ObjectData());
         }
 
         // "オブジェクトを削除"ボタン（一番最後のオブジェクトフィールドから削除）
-        if (GUILayout.Button("オブジェクトを削除") && objectDatas.Count > 0)
+        if (GUILayout.Button("アイテムを削除") && objectDatas.Count > 0)
         {
             objectDatas.RemoveAt(objectDatas.Count - 1);
         }
 
+        EditorGUILayout.EndHorizontal();
 
         for (int i = 0; i < objectDatas.Count; i++)
         {
             var data = objectDatas[i];
 
             EditorGUILayout.BeginHorizontal();
-            data.gameObject = EditorGUILayout.ObjectField($"GameObject {i + 1}", data.gameObject, typeof(GameObject), true) as GameObject;
-            if (GUILayout.Button("+"))
+            data.gameObject = EditorGUILayout.ObjectField($"アイテム {i + 1}", data.gameObject, typeof(GameObject), true) as GameObject;
+            if (GUILayout.Button("まとめるアイテムを追加", GUILayout.Width(150)))
             {
                 data.combinedObjects.Add(null);
             }
@@ -63,8 +67,8 @@ public class ToggleMenuGenerator : EditorWindow
             for (int j = 0; j < data.combinedObjects.Count; j++)
             {
                 EditorGUILayout.BeginHorizontal();
-                data.combinedObjects[j] = EditorGUILayout.ObjectField($"Combined Object {j + 1}", data.combinedObjects[j], typeof(GameObject), true) as GameObject;
-                if (GUILayout.Button("-") && data.combinedObjects.Count > 0)
+                data.combinedObjects[j] = EditorGUILayout.ObjectField($"まとめるアイテム {j + 1}", data.combinedObjects[j], typeof(GameObject), true) as GameObject;
+                if (GUILayout.Button("×", GUILayout.Width(50)) && data.combinedObjects.Count > 0)
                 {
                     data.combinedObjects.RemoveAt(j);
                     j--;
@@ -88,7 +92,7 @@ public class ToggleMenuGenerator : EditorWindow
         }
 
         GUILayout.Space(10);
-        setupMA = EditorGUILayout.Toggle("ModularAvatarでセットアップ", setupMA);
+        setupMA = EditorGUILayout.ToggleLeft("ModularAvatarを使用してセットアップする", setupMA);
             
         GUILayout.Space(5);
 
