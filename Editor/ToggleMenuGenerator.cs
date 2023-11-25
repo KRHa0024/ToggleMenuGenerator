@@ -34,6 +34,8 @@ public class ToggleMenuGenerator : EditorWindow
 
     void OnGUI()
     {
+        var originalColor = GUI.backgroundColor;
+
         GUILayout.Label("トグルするアイテムを選択してください", EditorStyles.boldLabel);
 
         EditorGUILayout.BeginHorizontal();
@@ -76,7 +78,10 @@ public class ToggleMenuGenerator : EditorWindow
 
             data.initialState = EditorGUILayout.ToggleLeft("初期状態", data.initialState);
             data.isSaved = EditorGUILayout.ToggleLeft("Saved", data.isSaved);
-            GUILayout.Space(10);
+
+            GUI.color = new Color(0.16f, 0.16f, 0.16f);;
+            GUILayout.Box("", GUILayout.Height(1), GUILayout.ExpandWidth(true));
+            GUI.color = originalColor;
         }
 
         GUILayout.Space(5);
