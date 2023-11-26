@@ -205,8 +205,8 @@ public class ToggleMenuGenerator : EditorWindow
         AssetDatabase.Refresh();
     }
 
-    // AnimatorControllerにLayerとParamaterを追加
-    void AddLayerAndParam(string name, bool isActiveInitially)
+    // AnimatorControllerにLayerとParameterを追加
+    void AddLayerAndParam(string name, bool initialState)
     {
         // レイヤーの作成
         string layerName = $"{name}_Toggle";
@@ -225,13 +225,13 @@ public class ToggleMenuGenerator : EditorWindow
         onState.motion = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{animationSavePath}/{name}_ON.anim");
         offState.motion = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{animationSavePath}/{name}_OFF.anim");
 
-        // パラメータの追加（初期値も設定）
+        // パラメータの追加（初期状態に基づいた設定）
         string paramName = $"{name}_Toggle";
         var param = new AnimatorControllerParameter()
         {
             name = paramName,
             type = AnimatorControllerParameterType.Bool,
-            defaultBool = isActiveInitially
+            defaultBool = initialState
         };
         animatorController.AddParameter(param);
 
@@ -251,11 +251,11 @@ public class ToggleMenuGenerator : EditorWindow
 
     // Baseフォルダを複製
     void DuplicateBaseFolder(string combinedObjectName)
-{
-    string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
-    string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
-    AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
-}
+    {
+        string baseFolderPath = "Assets/KRHa's Assets/ToggleMenuGenerator/TMG_Base";
+        string newFolderPath = $"{animationSavePath}/TMG_Base_{combinedObjectName}";
+        AssetDatabase.CopyAsset(baseFolderPath, newFolderPath);
+    }
 
     // VRCExpressionsMenuとVRCExpressionParametersに書き込み
     void UpdateParamAndMenu(string newFolderPath, AnimatorController animatorController)
@@ -281,12 +281,15 @@ public class ToggleMenuGenerator : EditorWindow
         // VRCExpressionsMenuへのコントロール追加
         foreach (var param in animatorController.parameters)
         {
-            VRCExpressionsMenu.Control control = new VRCExpressionsMenu.Control
+            // ObjectDataから初期状態を取得
+            var initialState = objectDatas.FirstOrDefault(d => GetCombinedName(d) + "_Toggle" == param.name)?.initialState ?? false;
+
+            var control = new VRCExpressionsMenu.Control
             {
                 name = param.name,
                 type = VRCExpressionsMenu.Control.ControlType.Toggle,
                 parameter = new VRCExpressionsMenu.Control.Parameter { name = param.name },
-                value = param.defaultBool ? 1 : 0
+                value = initialState ? 1 : 0 // 初期状態に基づいた値を設定
             };
             tagMenuMain.controls.Add(control);
         }
@@ -358,7 +361,18 @@ public class ToggleMenuGenerator : EditorWindow
     // 各オブジェクトの結合された名前を取得
     string GetCombinedName(ObjectData data)
     {
-        return data.gameObject.name + "_" + string.Join("_", data.combinedObjects.Select(obj => obj.name));
+        // まとめるオブジェクトがない場合は単一のオブジェクト名を返す
+        if (data.combinedObjects.Count == 0)
+        {
+            return data.gameObject.name;
+        }
+        else
+        {
+            // まとめるオブジェクトがある場合は結合された名前を生成
+            var combinedNames = data.combinedObjects.Select(obj => obj.name).ToList();
+            combinedNames.Insert(0, data.gameObject.name); // 最初にメインのオブジェクトを追加
+            return string.Join("_", combinedNames);
+        }
     }
 
     // 全オブジェクトの結合名を取得
