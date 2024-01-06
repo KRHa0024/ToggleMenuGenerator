@@ -7,7 +7,7 @@ VRCアバターにトグルメニューを自動生成します！
 誰かわかりやすい説明ください
 
 ### ダウンロード
-[ここ](https://github.com/KRHa0024/ToggleMenuGenerator/releases/tag/Latest)から。
+[ここ](https://github.com/KRHa0024/ToggleMenuGenerator/releases/tag/latest)から。
 
 ### 使い方
 1. Unityエディターのメニューバーから「くろ～は > ToggleMenuGenerator」を選択して、ToggleMenuGenerator ウィンドウを開きます。
