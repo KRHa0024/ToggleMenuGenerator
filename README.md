@@ -1,11 +1,6 @@
 # ToggleMenuGenerator
 VRCアバターにトグルメニューを自動生成します！
 
-### 説明
-工事中
-
-誰かわかりやすい説明ください
-
 ### ダウンロード
 [ここ](https://github.com/KRHa0024/ToggleMenuGenerator/releases/tag/latest)から。
 
