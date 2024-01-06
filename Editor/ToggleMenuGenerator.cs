@@ -17,8 +17,8 @@ public class ToggleMenuGenerator : EditorWindow
     class ObjectData
     {
         public GameObject gameObject;
-        public bool initialState;
-        public bool isSaved;
+        public bool initialState = true;
+        public bool isSaved = true;
         public List<GameObject> combinedObjects = new List<GameObject>();
     }
 
