@@ -151,7 +151,7 @@ public class ToggleMenuGenerator : EditorWindow
             GUILayout.Label("BlendShapesを持つメッシュを選択してください。", EditorStyles.boldLabel);
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Blendshapeメッシュの追加", GUILayout.Height(25)))
+            if (GUILayout.Button("メッシュの追加", GUILayout.Height(25)))
             {
                 data.blendShapeMeshes.Add(null);
             }
