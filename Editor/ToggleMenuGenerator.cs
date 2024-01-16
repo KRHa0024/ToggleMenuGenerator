@@ -20,6 +20,11 @@ public class ToggleMenuGenerator : EditorWindow
         public bool initialState = true;
         public bool isSaved = true;
         public List<GameObject> combinedObjects = new List<GameObject>();
+        public bool includeBlendShapes = false;
+        public GameObject blendShapeMesh;
+        public Dictionary<string, bool> blendShapeEnabled = new Dictionary<string, bool>();
+        public Dictionary<string, Vector2> blendShapeValues = new Dictionary<string, Vector2>();
+        public bool blendShapeFoldout = false;
     }
 
     List<ObjectData> objectDatas = new List<ObjectData>();
@@ -77,6 +82,42 @@ public class ToggleMenuGenerator : EditorWindow
 
             data.initialState = EditorGUILayout.ToggleLeft("初期状態", data.initialState);
             data.isSaved = EditorGUILayout.ToggleLeft("Saved", data.isSaved);
+
+            // ブレンドシェイプ関連のUIを追加
+            data.includeBlendShapes = EditorGUILayout.ToggleLeft("Blendshapeも変化させる", data.includeBlendShapes);
+
+            if (data.includeBlendShapes)
+            {
+                // ブレンドシェイプメッシュオブジェクトのフィールドを表示
+                data.blendShapeMesh = EditorGUILayout.ObjectField("BlendShape Mesh", data.blendShapeMesh, typeof(GameObject), true) as GameObject;
+                data.blendShapeFoldout = EditorGUILayout.Foldout(data.blendShapeFoldout, "BlendShapes");
+                if (data.blendShapeFoldout)
+                {
+                    SkinnedMeshRenderer skinnedMeshRenderer = data.blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
+                    if (skinnedMeshRenderer != null)
+                    {
+                        Mesh mesh = skinnedMeshRenderer.sharedMesh;
+                        for (int j = 0; j < mesh.blendShapeCount; j++)
+                        {
+                            string blendShapeName = mesh.GetBlendShapeName(j);
+                            if (!data.blendShapeEnabled.ContainsKey(blendShapeName))
+                            {
+                                data.blendShapeEnabled[blendShapeName] = false;
+                                data.blendShapeValues[blendShapeName] = new Vector2(0, 0); // 初期値
+                            }
+
+                            // ブレンドシェイプの選択
+                            data.blendShapeEnabled[blendShapeName] = EditorGUILayout.ToggleLeft(blendShapeName, data.blendShapeEnabled[blendShapeName]);
+
+                            // 値の設定
+                            if (data.blendShapeEnabled[blendShapeName])
+                            {
+                                data.blendShapeValues[blendShapeName] = EditorGUILayout.Vector2Field("Values", data.blendShapeValues[blendShapeName]);
+                            }
+                        }
+                    }
+                }
+            }
 
             GUI.color = new Color(0.16f, 0.16f, 0.16f);;
             GUILayout.Box("", GUILayout.Height(1), GUILayout.ExpandWidth(true));
@@ -139,30 +180,48 @@ public class ToggleMenuGenerator : EditorWindow
 
                 // アニメーションを生成
                 string combinedName = GetCombinedName(data);
-                CreateAnimation(objectsToCombine.ToArray(), true, combinedName);
-                CreateAnimation(objectsToCombine.ToArray(), false, combinedName);
+                CreateAnimation(data, true, combinedName);
+                CreateAnimation(data, false, combinedName);
             }
         }
     }
 
     // アニメーションの生成
-    void CreateAnimation(GameObject[] objects, bool isActive, string name)
+    void CreateAnimation(ObjectData data, bool isActive, string name)
     {
         AnimationClip clip = new AnimationClip();
-        foreach (var obj in objects)
+        if (data.gameObject != null)
         {
-            AnimationCurve curve = new AnimationCurve();
-            curve.AddKey(0.00f, isActive ? 1.0f : 0.0f);
+            // 通常のアクティブ/非アクティブのアニメーションキーを設定
+            AnimationCurve activeCurve = new AnimationCurve();
+            activeCurve.AddKey(0.00f, isActive ? 1.0f : 0.0f);
+            string activePropertyName = "m_IsActive";
+            GameObject topParent = data.gameObject.transform.root.gameObject;
+            string path = GetHierarchyPath(data.gameObject.transform, topParent.transform);
+            clip.SetCurve(path, typeof(GameObject), activePropertyName, activeCurve);
 
-            string propertyName = "m_IsActive";
-
-            // 最上位の親オブジェクトを取得
-            GameObject topParent = obj.transform.root.gameObject;
-
-            // パスの取得
-            string path = GetHierarchyPath(obj.transform, topParent.transform);
-
-            clip.SetCurve(path, typeof(GameObject), propertyName, curve);
+            // ブレンドシェイプのアニメーションキーを設定（もし該当する場合）
+            if (data.includeBlendShapes && data.blendShapeMesh != null)
+            {
+                SkinnedMeshRenderer skinnedMeshRenderer = data.blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
+                if (skinnedMeshRenderer != null)
+                {
+                    Mesh mesh = skinnedMeshRenderer.sharedMesh;
+                    for (int i = 0; i < mesh.blendShapeCount; i++)
+                    {
+                        string blendShapeName = mesh.GetBlendShapeName(i);
+                        if (data.blendShapeEnabled.ContainsKey(blendShapeName) && data.blendShapeEnabled[blendShapeName])
+                        {
+                            AnimationCurve blendShapeCurve = new AnimationCurve();
+                            Vector2 values = data.blendShapeValues[blendShapeName];
+                            float startValue = isActive ? values.x : values.y;
+                            blendShapeCurve.AddKey(0.00f, startValue);
+                            string blendShapePropertyName = $"blendShape.{blendShapeName}";
+                            clip.SetCurve(path, typeof(SkinnedMeshRenderer), blendShapePropertyName, blendShapeCurve);
+                        }
+                    }
+                }
+            }
         }
 
         string savePath = $"{animationSavePath}/{name}_{(isActive ? "ON" : "OFF")}.anim";
