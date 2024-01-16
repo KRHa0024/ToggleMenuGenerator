@@ -12,8 +12,9 @@ public class ToggleMenuGenerator : EditorWindow
 {
     string animationSavePath = "Assets/KRHa's Assets/ToggleMenuGenerator/Animations";
     AnimatorController animatorController;
+    private Vector2 scrollPosition;
 
-    // オブジェクトリストの管理に使用されるクラス
+    // オブジェクトリストの管理用クラス
     class ObjectData
     {
         public GameObject gameObject;
@@ -21,10 +22,10 @@ public class ToggleMenuGenerator : EditorWindow
         public bool isSaved = true;
         public List<GameObject> combinedObjects = new List<GameObject>();
         public bool includeBlendShapes = false;
-        public GameObject blendShapeMesh;
+        public List<GameObject> blendShapeMeshes = new List<GameObject>();
         public Dictionary<string, bool> blendShapeEnabled = new Dictionary<string, bool>();
         public Dictionary<string, Vector2> blendShapeValues = new Dictionary<string, Vector2>();
-        public bool blendShapeFoldout = false;
+        public Dictionary<GameObject, bool> blendShapeMeshFoldouts = new Dictionary<GameObject, bool>();
     }
 
     List<ObjectData> objectDatas = new List<ObjectData>();
@@ -56,6 +57,8 @@ public class ToggleMenuGenerator : EditorWindow
 
         EditorGUILayout.EndHorizontal();
 
+        scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
+
         for (int i = 0; i < objectDatas.Count; i++)
         {
             var data = objectDatas[i];
@@ -83,40 +86,14 @@ public class ToggleMenuGenerator : EditorWindow
             data.initialState = EditorGUILayout.ToggleLeft("初期状態", data.initialState);
             data.isSaved = EditorGUILayout.ToggleLeft("Saved", data.isSaved);
 
+            GUILayout.Space(10);
+
             // ブレンドシェイプ関連のUIを追加
             data.includeBlendShapes = EditorGUILayout.ToggleLeft("Blendshapeも変化させる", data.includeBlendShapes);
 
             if (data.includeBlendShapes)
             {
-                // ブレンドシェイプメッシュオブジェクトのフィールドを表示
-                data.blendShapeMesh = EditorGUILayout.ObjectField("BlendShape Mesh", data.blendShapeMesh, typeof(GameObject), true) as GameObject;
-                data.blendShapeFoldout = EditorGUILayout.Foldout(data.blendShapeFoldout, "BlendShapes");
-                if (data.blendShapeFoldout)
-                {
-                    SkinnedMeshRenderer skinnedMeshRenderer = data.blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
-                    if (skinnedMeshRenderer != null)
-                    {
-                        Mesh mesh = skinnedMeshRenderer.sharedMesh;
-                        for (int j = 0; j < mesh.blendShapeCount; j++)
-                        {
-                            string blendShapeName = mesh.GetBlendShapeName(j);
-                            if (!data.blendShapeEnabled.ContainsKey(blendShapeName))
-                            {
-                                data.blendShapeEnabled[blendShapeName] = false;
-                                data.blendShapeValues[blendShapeName] = new Vector2(0, 0); // 初期値
-                            }
-
-                            // ブレンドシェイプの選択
-                            data.blendShapeEnabled[blendShapeName] = EditorGUILayout.ToggleLeft(blendShapeName, data.blendShapeEnabled[blendShapeName]);
-
-                            // 値の設定
-                            if (data.blendShapeEnabled[blendShapeName])
-                            {
-                                data.blendShapeValues[blendShapeName] = EditorGUILayout.Vector2Field("Values", data.blendShapeValues[blendShapeName]);
-                            }
-                        }
-                    }
-                }
+                DrawBlendShapeUI(data);
             }
 
             GUI.color = new Color(0.16f, 0.16f, 0.16f);;
@@ -164,6 +141,83 @@ public class ToggleMenuGenerator : EditorWindow
 
             Setup(newFolderPath, animatorController);
         }
+        EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawBlendShapeUI(ObjectData data)
+    {
+        if (data.includeBlendShapes)
+        {
+            GUILayout.Label("BlendShapesを持つメッシュを選択してください。", EditorStyles.boldLabel);
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Blendshapeメッシュの追加", GUILayout.Height(25)))
+            {
+                data.blendShapeMeshes.Add(null);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            for (int meshIndex = 0; meshIndex < data.blendShapeMeshes.Count; meshIndex++)
+            {
+                GameObject blendShapeMesh = data.blendShapeMeshes[meshIndex];
+
+                EditorGUILayout.BeginHorizontal();
+                data.blendShapeMeshes[meshIndex] = EditorGUILayout.ObjectField(blendShapeMesh, typeof(GameObject), true) as GameObject;
+
+                if (GUILayout.Button("×", GUILayout.Width(50)))
+                {
+                    data.blendShapeMeshes.RemoveAt(meshIndex);
+                    data.blendShapeMeshFoldouts.Remove(blendShapeMesh);
+                    meshIndex--;
+                    continue;
+                }
+                EditorGUILayout.EndHorizontal();
+                if (blendShapeMesh != null)
+                {
+                    if (!data.blendShapeMeshFoldouts.ContainsKey(blendShapeMesh))
+                    {
+                        data.blendShapeMeshFoldouts.Add(blendShapeMesh, false);
+                    }
+
+                    data.blendShapeMeshFoldouts[blendShapeMesh] = EditorGUILayout.Foldout(data.blendShapeMeshFoldouts[blendShapeMesh], $"BlendShapes ({blendShapeMesh.name})");
+
+                    if (data.blendShapeMeshFoldouts[blendShapeMesh])
+                    {
+                        SkinnedMeshRenderer skinnedMeshRenderer = blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
+                        if (skinnedMeshRenderer != null)
+                        {
+                            Mesh mesh = skinnedMeshRenderer.sharedMesh;
+                            if (mesh != null)
+                            {
+                                for (int i = 0; i < mesh.blendShapeCount; i++)
+                                {
+                                    string blendShapeName = mesh.GetBlendShapeName(i);
+                                    if (!data.blendShapeEnabled.ContainsKey(blendShapeName))
+                                    {
+                                        data.blendShapeEnabled.Add(blendShapeName, false);
+                                        data.blendShapeValues.Add(blendShapeName, new Vector2(0, 0)); // 初期値
+                                    }
+
+                                    data.blendShapeEnabled[blendShapeName] = EditorGUILayout.ToggleLeft(blendShapeName, data.blendShapeEnabled[blendShapeName]);
+
+                                    if (data.blendShapeEnabled[blendShapeName])
+                                    {
+                                        Vector2 currentValues = data.blendShapeValues[blendShapeName];
+                                        EditorGUILayout.BeginHorizontal();
+                                        EditorGUILayout.LabelField("ON の時の値", GUILayout.Width(70));
+                                        currentValues.x = EditorGUILayout.FloatField(currentValues.x, GUILayout.Width(50));
+                                        EditorGUILayout.LabelField("OFFの時の値", GUILayout.Width(70));
+                                        currentValues.y = EditorGUILayout.FloatField(currentValues.y, GUILayout.Width(50));
+                                        data.blendShapeValues[blendShapeName] = currentValues;
+                                        EditorGUILayout.EndHorizontal();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // 結合アニメーションの生成
@@ -200,24 +254,28 @@ public class ToggleMenuGenerator : EditorWindow
             string path = GetHierarchyPath(data.gameObject.transform, topParent.transform);
             clip.SetCurve(path, typeof(GameObject), activePropertyName, activeCurve);
 
-            // ブレンドシェイプのアニメーションキーを設定（もし該当する場合）
-            if (data.includeBlendShapes && data.blendShapeMesh != null)
+            // ブレンドシェイプのアニメーションキーを設定
+            foreach (var blendShapeMesh in data.blendShapeMeshes)
             {
-                SkinnedMeshRenderer skinnedMeshRenderer = data.blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
-                if (skinnedMeshRenderer != null)
+                if (blendShapeMesh != null)
                 {
-                    Mesh mesh = skinnedMeshRenderer.sharedMesh;
-                    for (int i = 0; i < mesh.blendShapeCount; i++)
+                    SkinnedMeshRenderer skinnedMeshRenderer = blendShapeMesh.GetComponent<SkinnedMeshRenderer>();
+                    if (skinnedMeshRenderer != null)
                     {
-                        string blendShapeName = mesh.GetBlendShapeName(i);
-                        if (data.blendShapeEnabled.ContainsKey(blendShapeName) && data.blendShapeEnabled[blendShapeName])
+                        Mesh mesh = skinnedMeshRenderer.sharedMesh;
+                        for (int i = 0; i < mesh.blendShapeCount; i++)
                         {
+                            string blendShapeName = mesh.GetBlendShapeName(i);
+
+                            if (data.blendShapeEnabled.ContainsKey(blendShapeName) && data.blendShapeEnabled[blendShapeName])
+                            {
                             AnimationCurve blendShapeCurve = new AnimationCurve();
                             Vector2 values = data.blendShapeValues[blendShapeName];
                             float startValue = isActive ? values.x : values.y;
                             blendShapeCurve.AddKey(0.00f, startValue);
                             string blendShapePropertyName = $"blendShape.{blendShapeName}";
                             clip.SetCurve(path, typeof(SkinnedMeshRenderer), blendShapePropertyName, blendShapeCurve);
+                            }
                         }
                     }
                 }
